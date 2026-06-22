@@ -1,0 +1,21 @@
+name: Drift Detection
+
+on:
+  schedule:
+    - cron: '0 2 * * *' # nightly at 02:00 UTC
+
+jobs:
+  drift-detection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        run: terraform plan

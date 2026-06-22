@@ -1,0 +1,1 @@
+// outputs for cloudwatch module

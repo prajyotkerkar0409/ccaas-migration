@@ -1,0 +1,14 @@
+name: Lex Bot Deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  lex-bot-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy Lex Bot Version / Alias
+        run: echo "Deploy Lex bot version/alias promotion placeholder"
