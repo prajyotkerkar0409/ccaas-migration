@@ -75,7 +75,8 @@ jobs:
     needs: plan
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: lambda-functions-${{ env.DEPLOYMENT_ENV_NAME }}
+    environment:
+      name: lambda-functions-${{ github.event.inputs.environment || 'dev' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

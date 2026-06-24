@@ -75,7 +75,8 @@ jobs:
     needs: plan
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: supporting-infra-${{ env.DEPLOYMENT_ENV_NAME }}
+    environment:
+      name: supporting-infra-${{ github.event.inputs.environment || 'dev' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

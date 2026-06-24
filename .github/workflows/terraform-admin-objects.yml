@@ -87,7 +87,8 @@ jobs:
     needs: plan
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: admin-objects-${{ env.DEPLOYMENT_ENV_NAME }}
+    environment:
+      name: admin-objects-${{ github.event.inputs.environment || 'dev' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
