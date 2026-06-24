@@ -116,4 +116,4 @@ jobs:
 
       - name: Terraform apply
         run: terraform apply -auto-approve tfplan
-        working-directory: ${{ env.TF_ROOT }}
+        working-directory: ${{ env.TF_ROOT }} 
