@@ -1,0 +1,82 @@
+name: Amazon Connect Terraform Pipeline (Parent)
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment name'
+        required: false
+        default: dev
+
+concurrency:
+  group: terraform-pipeline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Supporting infrastructure must be deployed first
+  supporting-infra:
+    name: Supporting Infrastructure
+    uses: ./.github/workflows/terraform-supporting-infra.yml
+    secrets: inherit
+
+  # Connect instance depends on supporting infrastructure
+  instance:
+    name: Connect Instance
+    needs: supporting-infra
+    uses: ./.github/workflows/terraform-instance.yml
+    secrets: inherit
+
+  # Admin objects can run in parallel with lambda functions
+  admin-objects:
+    name: Admin Objects
+    needs: instance
+    uses: ./.github/workflows/terraform-admin-objects.yml
+    secrets: inherit
+
+  lambda-functions:
+    name: Lambda Functions
+    needs: instance
+    uses: ./.github/workflows/terraform-lambda-functions.yml
+    secrets: inherit
+
+  # Contact flows depends on both admin objects and lambda functions
+  contact-flows:
+    name: Contact Flows
+    needs: [admin-objects, lambda-functions]
+    uses: ./.github/workflows/terraform-contact-flows.yml
+    secrets: inherit
+
+  # Final summary
+  pipeline-summary:
+    name: Pipeline Summary
+    runs-on: ubuntu-latest
+    needs: [supporting-infra, instance, admin-objects, lambda-functions, contact-flows]
+    if: always()
+    steps:
+      - name: Pipeline Status
+        run: |
+          echo "=== Terraform Pipeline Summary ==="
+          echo "Supporting Infrastructure: ${{ needs.supporting-infra.result }}"
+          echo "Connect Instance: ${{ needs.instance.result }}"
+          echo "Admin Objects: ${{ needs.admin-objects.result }}"
+          echo "Lambda Functions: ${{ needs.lambda-functions.result }}"
+          echo "Contact Flows: ${{ needs.contact-flows.result }}"
+          echo "=================================="
+        
+      - name: Check Pipeline Status
+        run: |
+          if [ "${{ needs.supporting-infra.result }}" != "success" ] || \
+             [ "${{ needs.instance.result }}" != "success" ] || \
+             [ "${{ needs.admin-objects.result }}" != "success" ] || \
+             [ "${{ needs.lambda-functions.result }}" != "success" ] || \
+             [ "${{ needs.contact-flows.result }}" != "success" ]; then
+            echo "Pipeline failed!"
+            exit 1
+          fi
+          echo "Pipeline completed successfully!"

@@ -1,0 +1,483 @@
+name: Amazon Connect Terraform CI/CD
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment name'
+        required: false
+        default: dev
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+  DEPLOYMENT_ENV_NAME: ${{ github.event.inputs.environment || 'dev' }}
+
+jobs:
+  component-filter:
+    runs-on: ubuntu-latest
+    outputs:
+      admin_objects: ${{ steps.filter.outputs.admin_objects }}
+      contact_flows: ${{ steps.filter.outputs.contact_flows }}
+      instance: ${{ steps.filter.outputs.instance }}
+      lambda_functions: ${{ steps.filter.outputs.lambda_functions }}
+      supporting_infra: ${{ steps.filter.outputs.supporting_infra }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed components
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            admin_objects:
+              - 'amzconnect-admin-objects/**'
+              - 'modules/connect-admin-objects/**'
+              - 'imports/resources/agent-statuses/**'
+              - 'imports/resources/hoop/**'
+              - 'imports/resources/queues/**'
+              - 'imports/resources/quick-connects/**'
+              - 'imports/resources/routing-profiles/**'
+              - 'imports/resources/security-profiles/**'
+            contact_flows:
+              - 'amzconnect-contact-flows/**'
+              - 'modules/connect-contact-flows/**'
+              - 'imports/resources/flows/**'
+              - 'imports/resources/bots/**'
+            instance:
+              - 'amzconnect-instance/**'
+              - 'modules/connect-instance/**'
+            lambda_functions:
+              - 'amzconnect-lambda-functions/**'
+              - 'lambda-src/**'
+            supporting_infra:
+              - 'amzconnect-supporting-infra/**'
+              - 'modules/connect-supporting-infra/**'
+
+  admin-objects-plan:
+    needs: component-filter
+    if: needs.component-filter.outputs.admin_objects == 'true'
+    runs-on: ubuntu-latest
+    env:
+      TF_ROOT: amzconnect-admin-objects/terraform
+      DEPLOYMENT_ENV_NAME: ${{ env.DEPLOYMENT_ENV_NAME }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-${{ github.run_id }}
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform init
+        run: terraform init
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform validate
+        run: terraform validate
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform plan
+        run: terraform plan -var-file=env/${{ env.DEPLOYMENT_ENV_NAME }}.tfvars -out=tfplan
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-objects-plan
+          path: ${{ env.TF_ROOT }}/tfplan
+
+  admin-objects-deploy:
+    needs: admin-objects-plan
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: admin-objects-${{ env.DEPLOYMENT_ENV_NAME }}
+    env:
+      TF_ROOT: amzconnect-admin-objects/terraform
+      DEPLOYMENT_ENV_NAME: ${{ env.DEPLOYMENT_ENV_NAME }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-${{ github.run_id }}
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: admin-objects-plan
+          path: ${{ env.TF_ROOT }}
+
+      - name: Terraform init
+        run: terraform init
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: ${{ env.TF_ROOT }}
+
+  contact-flows-plan:
+    needs: component-filter
+    if: needs.component-filter.outputs.contact_flows == 'true'
+    runs-on: ubuntu-latest
+    env:
+      TF_ROOT: amzconnect-contact-flows/terraform
+      DEPLOYMENT_ENV_NAME: ${{ env.DEPLOYMENT_ENV_NAME }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-${{ github.run_id }}
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform init
+        run: terraform init
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform validate
+        run: terraform validate
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform plan
+        run: terraform plan -var-file=env/${{ env.DEPLOYMENT_ENV_NAME }}.tfvars -out=tfplan
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: contact-flows-plan
+          path: ${{ env.TF_ROOT }}/tfplan
+
+  contact-flows-deploy:
+    needs: contact-flows-plan
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: contact-flows-${{ env.DEPLOYMENT_ENV_NAME }}
+    env:
+      TF_ROOT: amzconnect-contact-flows/terraform
+      DEPLOYMENT_ENV_NAME: ${{ env.DEPLOYMENT_ENV_NAME }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-${{ github.run_id }}
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: contact-flows-plan
+          path: ${{ env.TF_ROOT }}
+
+      - name: Terraform init
+        run: terraform init
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: ${{ env.TF_ROOT }}
+
+  instance-plan:
+    needs: component-filter
+    if: needs.component-filter.outputs.instance == 'true'
+    runs-on: ubuntu-latest
+    env:
+      TF_ROOT: amzconnect-instance/terraform
+      DEPLOYMENT_ENV_NAME: ${{ env.DEPLOYMENT_ENV_NAME }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-${{ github.run_id }}
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform init
+        run: terraform init
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform validate
+        run: terraform validate
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform plan
+        run: terraform plan -var-file=env/${{ env.DEPLOYMENT_ENV_NAME }}.tfvars -out=tfplan
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: instance-plan
+          path: ${{ env.TF_ROOT }}/tfplan
+
+  instance-deploy:
+    needs: instance-plan
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: instance-${{ env.DEPLOYMENT_ENV_NAME }}
+    env:
+      TF_ROOT: amzconnect-instance/terraform
+      DEPLOYMENT_ENV_NAME: ${{ env.DEPLOYMENT_ENV_NAME }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-${{ github.run_id }}
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: instance-plan
+          path: ${{ env.TF_ROOT }}
+
+      - name: Terraform init
+        run: terraform init
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: ${{ env.TF_ROOT }}
+
+  lambda-functions-plan:
+    needs: component-filter
+    if: needs.component-filter.outputs.lambda_functions == 'true'
+    runs-on: ubuntu-latest
+    env:
+      TF_ROOT: amzconnect-lambda-functions/terraform
+      DEPLOYMENT_ENV_NAME: ${{ env.DEPLOYMENT_ENV_NAME }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-${{ github.run_id }}
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform init
+        run: terraform init
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform validate
+        run: terraform validate
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform plan
+        run: terraform plan -var-file=env/${{ env.DEPLOYMENT_ENV_NAME }}.tfvars -out=tfplan
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-functions-plan
+          path: ${{ env.TF_ROOT }}/tfplan
+
+  lambda-functions-deploy:
+    needs: lambda-functions-plan
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: lambda-functions-${{ env.DEPLOYMENT_ENV_NAME }}
+    env:
+      TF_ROOT: amzconnect-lambda-functions/terraform
+      DEPLOYMENT_ENV_NAME: ${{ env.DEPLOYMENT_ENV_NAME }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-${{ github.run_id }}
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-functions-plan
+          path: ${{ env.TF_ROOT }}
+
+      - name: Terraform init
+        run: terraform init
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: ${{ env.TF_ROOT }}
+
+  supporting-infra-plan:
+    needs: component-filter
+    if: needs.component-filter.outputs.supporting_infra == 'true'
+    runs-on: ubuntu-latest
+    env:
+      TF_ROOT: amzconnect-supporting-infra/terraform
+      DEPLOYMENT_ENV_NAME: ${{ env.DEPLOYMENT_ENV_NAME }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-${{ github.run_id }}
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform init
+        run: terraform init
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform validate
+        run: terraform validate
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform plan
+        run: terraform plan -var-file=env/${{ env.DEPLOYMENT_ENV_NAME }}.tfvars -out=tfplan
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: supporting-infra-plan
+          path: ${{ env.TF_ROOT }}/tfplan
+
+  supporting-infra-deploy:
+    needs: supporting-infra-plan
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: supporting-infra-${{ env.DEPLOYMENT_ENV_NAME }}
+    env:
+      TF_ROOT: amzconnect-supporting-infra/terraform
+      DEPLOYMENT_ENV_NAME: ${{ env.DEPLOYMENT_ENV_NAME }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-${{ github.run_id }}
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: supporting-infra-plan
+          path: ${{ env.TF_ROOT }}
+
+      - name: Terraform init
+        run: terraform init
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: ${{ env.TF_ROOT }}
