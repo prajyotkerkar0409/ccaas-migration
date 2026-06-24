@@ -23,6 +23,12 @@ on:
         description: 'Deployment environment name'
         required: false
         default: dev
+  workflow_call:
+    inputs:
+      environment:
+        required: false
+        type: string
+        default: dev
 
 permissions:
   contents: read
@@ -31,7 +37,7 @@ permissions:
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
   AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
-  DEPLOYMENT_ENV_NAME: ${{ github.event.inputs.environment || 'dev' }}
+  DEPLOYMENT_ENV_NAME: ${{ github.event_name == 'workflow_call' && inputs.environment || github.event.inputs.environment || 'dev' }}
   TF_ROOT: amzconnect-contact-flows/terraform
 
 jobs:
@@ -80,7 +86,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
-      name: contact-flows-${{ github.event.inputs.environment || 'dev' }}
+      name: contact-flows-${{ github.event_name == 'workflow_call' && inputs.environment || github.event.inputs.environment || 'dev' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

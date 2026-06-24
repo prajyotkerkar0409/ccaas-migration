@@ -24,6 +24,8 @@ jobs:
     name: Supporting Infrastructure
     uses: ./.github/workflows/terraform-supporting-infra.yml
     secrets: inherit
+    with:
+      environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'dev' }}
 
   # Connect instance depends on supporting infrastructure
   instance:
@@ -31,6 +33,8 @@ jobs:
     needs: supporting-infra
     uses: ./.github/workflows/terraform-instance.yml
     secrets: inherit
+    with:
+      environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'dev' }}
 
   # Admin objects can run in parallel with lambda functions
   admin-objects:
@@ -38,12 +42,16 @@ jobs:
     needs: instance
     uses: ./.github/workflows/terraform-admin-objects.yml
     secrets: inherit
+    with:
+      environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'dev' }}
 
   lambda-functions:
     name: Lambda Functions
     needs: instance
     uses: ./.github/workflows/terraform-lambda-functions.yml
     secrets: inherit
+    with:
+      environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'dev' }}
 
   # Contact flows depends on both admin objects and lambda functions
   contact-flows:
@@ -51,6 +59,8 @@ jobs:
     needs: [admin-objects, lambda-functions]
     uses: ./.github/workflows/terraform-contact-flows.yml
     secrets: inherit
+    with:
+      environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'dev' }}
 
   # Final summary
   pipeline-summary:
