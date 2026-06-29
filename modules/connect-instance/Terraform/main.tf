@@ -15,7 +15,7 @@ provider "aws" {
 
 
 module "connect_instance" {
-  source = "../../modules/connect-instance/instance"
+  source = "../instance"
 
   instance_alias           = var.instance_alias
   identity_management_type = var.identity_management_type

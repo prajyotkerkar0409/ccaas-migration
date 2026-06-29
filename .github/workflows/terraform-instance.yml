@@ -34,7 +34,7 @@ env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
   AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
   DEPLOYMENT_ENV_NAME: ${{ github.event_name == 'workflow_call' && inputs.environment || github.event.inputs.environment || 'dev' }}
-  TF_ROOT: amzconnect-instance/terraform
+  TF_ROOT: modules/connect-instance/Terraform
 
 jobs:
   plan:
