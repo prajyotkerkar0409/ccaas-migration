@@ -7,12 +7,17 @@ on:
   push:
     branches:
       - main
+
   workflow_dispatch:
     inputs:
       environment:
         description: 'Deployment environment name'
         required: false
         default: dev
+
+permissions:
+    id-token: write
+    contents: read
 
 concurrency:
   group: terraform-pipeline-${{ github.ref }}
