@@ -1,9 +1,11 @@
-module "connect_instance" {
-  source = "../../modules/connect-instance/instance"
+resource "aws_connect_instance" "this" {
 
-  instance_alias           = var.instance_alias
   identity_management_type = var.identity_management_type
-  inbound_calls_enabled    = var.inbound_calls_enabled
-  outbound_calls_enabled   = var.outbound_calls_enabled
-  tags                     = var.tags
+
+  inbound_calls_enabled  = var.inbound_calls_enabled
+  outbound_calls_enabled = var.outbound_calls_enabled
+
+  instance_alias = var.instance_alias
+
+  tags = var.tags
 }
