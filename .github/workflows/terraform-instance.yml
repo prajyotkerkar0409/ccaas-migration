@@ -55,9 +55,9 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-actions-${{ github.run_id }}
 
-      # - name: Terraform fmt
-      #   run: terraform fmt -recursive
-      #   working-directory: ${{ env.TF_ROOT }}
+      - name: Terraform fmt
+        run: terraform fmt -recursive
+        working-directory: ${{ env.TF_ROOT }}
 
       - name: Terraform init
         run: terraform init
