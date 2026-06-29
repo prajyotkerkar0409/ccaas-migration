@@ -23,4 +23,3 @@ module "connect_instance" {
   outbound_calls_enabled   = var.outbound_calls_enabled
   tags                     = var.tags
 }
-
