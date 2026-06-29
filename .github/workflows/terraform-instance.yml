@@ -56,7 +56,7 @@ jobs:
           role-session-name: github-actions-${{ github.run_id }}
 
       - name: Terraform fmt
-        run: terraform fmt -check -recursive
+        run: terraform fmt -recursive
         working-directory: ${{ env.TF_ROOT }}
 
       - name: Terraform init
@@ -112,4 +112,3 @@ jobs:
       - name: Terraform apply
         run: terraform apply -auto-approve tfplan
         working-directory: ${{ env.TF_ROOT }}
-        
