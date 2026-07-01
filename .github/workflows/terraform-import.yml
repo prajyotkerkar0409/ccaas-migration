@@ -71,9 +71,12 @@ jobs:
     # Terraform Import
     #------------------------------------------------------------
     - name: Import Amazon Connect Instance
+      working-directory: environments/sandbox
       run: |
-        terraform import -var-file=env/sandbox.tfvars module.connect_instance.aws_connect_instance.this "${{ github.event.inputs.connect_instance_id }}"
-      working-directory: ${{ env.TF_ROOT }}
+        terraform import \
+        -var-file=sandbox.tfvars \
+        module.connect_instance.aws_connect_instance.this \
+        "${{ github.event.inputs.connect_instance_id }}"
 
     #------------------------------------------------------------
     # Terraform Validate
