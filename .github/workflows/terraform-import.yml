@@ -9,7 +9,9 @@ on:
         default: "sandbox"
         type: choice
         options:
+          - dev
           - sandbox
+          - prod
 
       connect_instance_id:
         description: "Amazon Connect Instance ID"
@@ -71,10 +73,10 @@ jobs:
     # Terraform Import
     #------------------------------------------------------------
     - name: Import Amazon Connect Instance
-      working-directory: environments/sandbox
+      working-directory: ${{ env.TF_ROOT }}
       run: |
         terraform import \
-        -var-file=sandbox.tfvars \
+        -var-file="env/${{ github.event.inputs.environment }}.tfvars" \
         module.connect_instance.aws_connect_instance.this \
         "${{ github.event.inputs.connect_instance_id }}"
 
@@ -90,7 +92,7 @@ jobs:
     - name: Terraform Plan
       run: |
         terraform plan \
-        -var-file=env/sandbox.tfvars
+        -var-file="env/${{ github.event.inputs.environment }}.tfvars"
 
     #------------------------------------------------------------
     # Show Terraform State
