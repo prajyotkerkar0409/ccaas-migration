@@ -79,6 +79,7 @@ jobs:
         -var-file="env/${{ github.event.inputs.environment }}.tfvars" \
         module.connect_instance.aws_connect_instance.this \
         "${{ github.event.inputs.connect_instance_id }}"
+        identity_management_type = "CONNECT_MANAGED"
 
     #------------------------------------------------------------
     # Terraform Validate
